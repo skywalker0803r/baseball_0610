@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>棒球投手姿勢分析儀表板</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0056b3;
+            text-align: center;
+        }
+        .upload-section, .analysis-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #e9e9e9;
+        }
+        input[type="file"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #message {
+            margin-top: 10px;
+            color: green;
+            font-weight: bold;
+        }
+        #error-message {
+            margin-top: 10px;
+            color: red;
+            font-weight: bold;
+        }
+        #analysisCanvas {
+            border: 1px solid #ccc;
+            background-color: #000; /* 影片背景 */
+            display: block;
+            margin-top: 20px;
+            max-width: 100%;
+        }
+        #metricsDisplay {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border: 1px solid #e2e6ea;
+            border-radius: 5px;
+        }
+        #metricsDisplay h2 {
+            margin-top: 0;
+            color: #0056b3;
+        }
+        #metricsDisplay p {
+            margin-bottom: 5px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>棒球投手姿勢分析儀表板</h1>
+
+        <div class="upload-section">
+            <h2>1. 上傳棒球投手影片</h2>
+            <input type="file" id="videoUpload" accept="video/*">
+            <button id="uploadButton">上傳影片並開始分析</button>
+            <div id="message"></div>
+            <div id="error-message" class="hidden"></div>
+        </div>
+
+        <div class="analysis-section hidden" id="analysisSection">
+            <h2>2. 姿勢分析結果 (即時串流)</h2>
+            <canvas id="analysisCanvas" width="800" height="450"></canvas>
+            <div id="metricsDisplay">
+                <h2>運動力學特徵數據</h2>
+                <p><strong>當前幀數:</strong> <span id="currentFrameNum">0</span></p>
+                <p><strong>左手肘角度:</strong> <span id="leftElbowAngle">---</span> 度</p>
+                </div>
+            <button id="stopAnalysisButton">停止分析</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
