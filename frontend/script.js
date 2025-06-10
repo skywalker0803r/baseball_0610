@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopAnalysisButton = document.getElementById('stopAnalysisButton');
 
     // **重要：將這裡替換為您的 FastAPI 後端實際部署的 URL**
-    const API_BASE_URL = 'https://13.158.25.83:8000';
+    const API_BASE_URL = 'http://13.158.25.83:8000';
     let websocket = null;
 
     // 模擬歷史記錄
