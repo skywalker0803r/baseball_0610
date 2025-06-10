@@ -1,5 +1,5 @@
 # 使用官方 Python 3.9.23 鏡像
-FROM python:3.9.23-slim-buster
+FROM python:3.9-slim-buster
 
 # 設置工作目錄
 WORKDIR /app
