@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import cv2
@@ -23,9 +23,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# MediaPipe Pose setup
+# MediaPipe Pose 
 mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 mp_drawing = mp.solutions.drawing_utils
 
 # 儲存影片的臨時目錄
@@ -75,66 +74,68 @@ async def analyze_video_websocket(websocket: WebSocket, filename: str):
     await manager.connect(websocket)
     video_path = os.path.join(UPLOAD_DIR, filename)
 
-    if not os.path.exists(video_path):
-        await manager.send_personal_message({"error": "Video file not found."}, websocket)
-        manager.disconnect(websocket)
-        return
+    # Initialize cap to None here
+    cap = None
+    # pose_instance is Declared here as a local variable
+    pose_instance = None 
 
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        await manager.send_personal_message({"error": "Could not open video file."}, websocket)
-        manager.disconnect(websocket)
-        return
-
-    frame_count = 0
     try:
+        if not os.path.exists(video_path):
+            await manager.send_personal_message({"error": "Video file not found."}, websocket)
+            manager.disconnect(websocket)
+            return
+
+        cap = cv2.VideoCapture(video_path) # cap is assigned here
+        if not cap.isOpened():
+            await manager.send_personal_message({"error": "Could not open video file."}, websocket)
+            manager.disconnect(websocket)
+            return
+
+        pose_instance = mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+
+        frame_count = 0
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
 
             frame_count += 1
-            # 轉換顏色空間 BGR -> RGB (MediaPipe 需要)
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            image.flags.writeable = False # 提升效能
+            image.flags.writeable = False
 
-            # 進行姿態偵測
-            results = pose.process(image)
+            results = pose_instance.process(image) 
 
             image.flags.writeable = True
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
             landmarks_data = []
             if results.pose_landmarks:
-                # 繪製骨架
-                # mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
-
-                # 提取關節座標
+                mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
                 for id, lm in enumerate(results.pose_landmarks.landmark):
-                    # 轉換為圖像座標 (x, y)
                     h, w, c = frame.shape
                     cx, cy = int(lm.x * w), int(lm.y * h)
-                    landmarks_data.append({"id": id, "x": lm.x, "y": lm.y, "z": lm.z, "visibility": lm.visibility, "px": cx, "py": cy}) # lm.x, lm.y 是相對座標 (0-1), cx, cy 是像素座標
+                    landmarks_data.append(lm)
 
-                # 計算運動力學特徵範例 (簡化)
-                # 您可以在這裡加入更複雜的計算，例如角度、速度、加速度等
                 metrics = calculate_pitcher_metrics(landmarks_data)
+                for key, value in metrics.items():
+                    if isinstance(value, np.integer):
+                        metrics[key] = int(value)
+                    elif isinstance(value, np.floating):
+                       metrics[key] = float(value)
 
-            # 將處理後的幀轉為JPEG，用於前端顯示
-            _, buffer = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 70]) # 壓縮品質
+            _, buffer = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
             jpg_as_text = buffer.tobytes()
 
-            # 發送數據到前端
             await manager.send_personal_message(
                 {
-                    "frame_data": jpg_as_text.decode('latin-1'), # 將bytes轉為字串傳輸
+                    "frame_data": jpg_as_text.decode('latin-1'),
                     "frame_num": frame_count,
-                    "landmarks": landmarks_data,
+                    "landmarks": [{"id": id, "x": lm.x, "y": lm.y, "z": lm.z, "visibility": lm.visibility, "px": cx, "py": cy} for id,lm in enumerate(landmarks_data)],
                     "metrics": metrics if 'metrics' in locals() else {}
                 },
                 websocket
             )
-            await asyncio.sleep(0.01) # 控制幀率，避免過載
+            await asyncio.sleep(0.01)
 
     except WebSocketDisconnect:
         print(f"WebSocket client disconnected during analysis.")
@@ -142,53 +143,103 @@ async def analyze_video_websocket(websocket: WebSocket, filename: str):
         print(f"Error during video analysis: {e}")
         await manager.send_personal_message({"error": f"Server error during analysis: {e}"}, websocket)
     finally:
-        cap.release()
-        pose.close() # 釋放MediaPipe資源
+        # Check if cap was assigned before trying to release
+        if cap is not None:
+            cap.release()
+        
+        # If pose_instance was local to the function, you'd do:
+        if pose_instance is not None:
+            pose_instance.close()
+        
         if os.path.exists(video_path):
-            os.remove(video_path) # 處理完畢後刪除影片
+            os.remove(video_path)
         manager.disconnect(websocket)
         print(f"Analysis for {filename} finished.")
 
 # --- 運動力學特徵計算範例 ---
+def get_landmark_vector(landmark, idx):
+    return np.array([landmark[idx].x, landmark[idx].y, landmark[idx].z])
+
+
+def calculate_angle(a, b, c):
+    ba = a - b
+    bc = c - b
+    cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc) + 1e-6)
+    return np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0)))
+
+def calc_stride_angle(lm):
+    return calculate_angle(
+        get_landmark_vector(lm, 24),
+        get_landmark_vector(lm, 26),
+        get_landmark_vector(lm, 23),
+    )
+
+
+def calc_throwing_angle(lm):
+    return calculate_angle(
+        get_landmark_vector(lm, 12),
+        get_landmark_vector(lm, 14),
+        get_landmark_vector(lm, 16),
+    )
+
+
+def calc_arm_symmetry(lm):
+    return 1 - abs(lm[15].y - lm[16].y)
+
+
+def calc_hip_rotation(lm):
+    return abs(lm[23].z - lm[24].z)
+
+
+def calc_elbow_height(lm):
+    return lm[14].y
+
+
+def calc_ankle_height(lm):
+    return lm[28].y
+
+
+def calc_shoulder_rotation(lm):
+    return abs(lm[11].z - lm[12].z)
+
+
+def calc_torso_tilt_angle(lm):
+    return calculate_angle(
+        get_landmark_vector(lm, 11),
+        get_landmark_vector(lm, 23),
+        get_landmark_vector(lm, 24),
+    )
+
+
+def calc_release_distance(lm):
+    return np.linalg.norm(
+        get_landmark_vector(lm, 16) - get_landmark_vector(lm, 12)
+    )  # ✅ 修正 list 相減
+
+
+def calc_shoulder_to_hip(lm):
+    return abs(lm[12].x - lm[24].x)
+
 def calculate_pitcher_metrics(landmarks_data: list) -> dict:
-    """
-    根據關節座標計算簡易的運動力學特徵。
-    這是一個簡化示例，您可以根據您的分析需求擴展。
-    """
-    metrics = {}
-    try:
-        # 假設我們關心手肘角度 (以 LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST 為例)
-        shoulder_l = np.array([lm['px'] for lm in landmarks_data if lm['id'] == mp_pose.PoseLandmark.LEFT_SHOULDER.value][0]), \
-                     np.array([lm['py'] for lm in landmarks_data if lm['id'] == mp_pose.PoseLandmark.LEFT_SHOULDER.value][0])
 
-        elbow_l = np.array([lm['px'] for lm in landmarks_data if lm['id'] == mp_pose.PoseLandmark.LEFT_ELBOW.value][0]), \
-                  np.array([lm['py'] for lm in landmarks_data if lm['id'] == mp_pose.PoseLandmark.LEFT_ELBOW.value][0])
+    # Convert list of landmarks to dict by id for easier access
+    metric_funcs = {
+        "stride_angle":       calc_stride_angle,
+        "throwing_angle":     calc_throwing_angle,
+        "arm_symmetry":       calc_arm_symmetry,
+        "hip_rotation":       calc_hip_rotation,
+        "elbow_height":       calc_elbow_height,
+        "ankle_height":       calc_ankle_height,
+        "shoulder_rotation":  calc_shoulder_rotation,
+        "torso_tilt_angle":   calc_torso_tilt_angle,
+        "release_distance":   calc_release_distance,
+        "shoulder_to_hip":    calc_shoulder_to_hip,
+    }
 
-        wrist_l = np.array([lm['px'] for lm in landmarks_data if lm['id'] == mp_pose.PoseLandmark.LEFT_WRIST.value][0]), \
-                  np.array([lm['py'] for lm in landmarks_data if lm['id'] == mp_pose.PoseLandmark.LEFT_WRIST.value][0])
-
-        def calculate_angle(a, b, c):
-            a = np.array(a)
-            b = np.array(b)
-            c = np.array(c)
-
-            radians = np.arctan2(c[1]-b[1], c[0]-b[0]) - np.arctan2(a[1]-b[1], a[0]-b[0])
-            angle = np.abs(radians*180.0/np.pi)
-
-            if angle > 180.0:
-                angle = 360 - angle
-            return angle
-
-        elbow_angle_l = calculate_angle(shoulder_l, elbow_l, wrist_l)
-        metrics["left_elbow_angle"] = round(elbow_angle_l, 2)
-
-    except IndexError:
-        metrics["left_elbow_angle"] = None # 如果關節點未偵測到
-    except Exception as e:
-        print(f"Error calculating metrics: {e}")
-        metrics["calculation_error"] = str(e)
-
-    return metrics
+    return {
+        name: float(round(func(landmarks_data), 2))
+        for name, func in metric_funcs.items()
+    }
 
 # 運行FastAPI應用 (開發用)
 if __name__ == "__main__":

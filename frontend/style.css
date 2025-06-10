@@ -1,33 +1,100 @@
+/* General Body and Container */
 body {
     font-family: Arial, sans-serif;
     margin: 20px;
     background-color: #f4f4f4;
     color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* 將內容從頂部開始排列 */
+    min-height: 95vh; /* 確保內容不會太集中在頂部 */
 }
+
 .container {
-    max-width: 900px;
+    max-width: 1200px; /* 增加最大寬度以容納更多區塊 */
+    width: 100%;
     margin: 0 auto;
     background: #fff;
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column; /* 主容器內元素垂直排列 */
+    gap: 20px; /* 行之間的間距 */
 }
+
 h1 {
     color: #0056b3;
     text-align: center;
-}
-.upload-section, .analysis-section {
     margin-bottom: 20px;
+}
+
+/* Row Layouts (Flexbox) */
+.top-row, .bottom-row {
+    display: flex;
+    gap: 20px; /* 區塊之間的間距 */
+    flex-wrap: wrap; /* 內容不足時換行 */
+}
+
+.top-row {
+    justify-content: space-between; /* 頂部左右兩塊分開 */
+}
+
+.bottom-row {
+    justify-content: space-around; /* 底部三塊平均分佈 */
+}
+
+/* Section Styles */
+.section {
     padding: 15px;
     border: 1px solid #ddd;
     border-radius: 5px;
     background-color: #e9e9e9;
+    flex: 1; /* 讓區塊彈性填充可用空間 */
+    min-width: 280px; /* 設置最小寬度，避免縮得太小 */
+    box-sizing: border-box; /* 確保 padding 和 border 不會增加寬度 */
+    display: flex;
+    flex-direction: column;
 }
+
+.section h2 {
+    margin-top: 0;
+    color: #0056b3;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+/* Specific Section Adjustments */
+.upload-section {
+    /* 保持其現有功能，與 analysis-section 並排 */
+}
+
+.analysis-section {
+    /* 保持其現有功能，與 upload-section 並排 */
+}
+
+.metrics-details-section {
+    /* 關鍵指標分析 */
+}
+
+.suggestions-section {
+    /* 姿勢改善建議 */
+}
+
+.history-section {
+    /* 今日歷史記錄 */
+}
+
+/* Form Elements */
 input[type="file"] {
     padding: 8px;
     border: 1px solid #ccc;
     border-radius: 4px;
+    width: calc(100% - 20px); /* 考慮 padding */
+    margin-bottom: 10px;
 }
+
 button {
     background-color: #007bff;
     color: white;
@@ -36,10 +103,14 @@ button {
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
+    width: 100%; /* 讓按鈕寬度填充父容器 */
+    margin-top: 5px;
 }
 button:hover {
     background-color: #0056b3;
 }
+
+/* Message & Error Display */
 #message {
     margin-top: 10px;
     color: green;
@@ -50,27 +121,43 @@ button:hover {
     color: red;
     font-weight: bold;
 }
+.hidden {
+    display: none;
+}
+
+/* Canvas & Metrics Display */
 #analysisCanvas {
     border: 1px solid #ccc;
     background-color: #000; /* 影片背景 */
     display: block;
-    margin-top: 20px;
-    max-width: 100%;
+    margin: 10px auto; /* 置中顯示 */
+    max-width: 100%; /* 確保響應式 */
+    height: auto; /* 維持比例 */
 }
-#metricsDisplay {
-    margin-top: 20px;
-    padding: 15px;
-    background-color: #f8f9fa;
-    border: 1px solid #e2e6ea;
-    border-radius: 5px;
-}
-#metricsDisplay h2 {
-    margin-top: 0;
-    color: #0056b3;
-}
+
 #metricsDisplay p {
     margin-bottom: 5px;
 }
-.hidden {
-    display: none;
+
+#historyList {
+    list-style-type: none;
+    padding: 0;
+}
+
+#historyList li {
+    background-color: #f0f0f0;
+    margin-bottom: 5px;
+    padding: 8px;
+    border-radius: 3px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .top-row, .bottom-row {
+        flex-direction: column; /* 小螢幕下垂直堆疊 */
+    }
+    .section {
+        min-width: unset; /* 取消最小寬度限制 */
+        width: 100%; /* 填充整個寬度 */
+    }
 }

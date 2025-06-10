@@ -4,28 +4,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>棒球投手姿勢分析儀表板</title>
-    <link rel="stylesheet" href="style.css"> </head>
+    <link rel="stylesheet" href="style.css">
+</head>
 <body>
     <div class="container">
         <h1>棒球投手姿勢分析儀表板</h1>
 
-        <div class="upload-section">
-            <h2>1. 上傳棒球投手影片</h2>
-            <input type="file" id="videoUpload" accept="video/*">
-            <button id="uploadButton">上傳影片並開始分析</button>
-            <div id="message"></div>
-            <div id="error-message" class="hidden"></div>
+        <div class="top-row">
+            <div class="section upload-section">
+                <h2>1. 上傳棒球投手影片</h2>
+                <input type="file" id="videoUpload" accept="video/*">
+                <button id="uploadButton">上傳影片並開始分析</button>
+                <div id="message"></div>
+                <div id="error-message" class="hidden"></div>
+            </div>
+
+            <div class="section analysis-section hidden" id="analysisSection">
+                <h2>2. 姿勢分析結果 (即時串流)</h2>
+                <canvas id="analysisCanvas" width="500" height="280"></canvas>
+                <p><strong>當前幀數:</strong> <span id="currentFrameNum">0</span></p>
+                <button id="stopAnalysisButton">停止分析</button>
+            </div>
         </div>
 
-        <div class="analysis-section hidden" id="analysisSection">
-            <h2>2. 姿勢分析結果 (即時串流)</h2>
-            <canvas id="analysisCanvas" width="800" height="450"></canvas>
-            <div id="metricsDisplay">
-                <h2>運動力學特徵數據</h2>
-                <p><strong>當前幀數:</strong> <span id="currentFrameNum">0</span></p>
-                <p><strong>左手肘角度:</strong> <span id="leftElbowAngle">---</span> 度</p>
+        <div class="bottom-row">
+            <div class="section metrics-details-section">
+                <h2>關鍵指標分析</h2>
+                <div id="metricsDisplay">
+                    <p><strong>步幅角度:</strong> <span id="stride_angle">---</span> 度</p>
+                    <p><strong>投擲角度:</strong> <span id="throwing_angle">---</span> 度</p>
+                    <p><strong>手臂對稱性:</strong> <span id="arm_symmetry">---</span> %</p>
+                    <p><strong>髖部旋轉:</strong> <span id="hip_rotation">---</span> 度</p>
+                    <p><strong>手肘高度:</strong> <span id="elbow_height">---</span> px</p>
+                    <p><strong>腳踝高度:</strong> <span id="ankle_height">---</span> px</p>
+                    <p><strong>肩膀旋轉:</strong> <span id="shoulder_rotation">---</span> 度</p>
+                    <p><strong>軀幹傾斜角度:</strong> <span id="torso_tilt_angle">---</span> 度</p>
+                    <p><strong>釋放距離:</strong> <span id="release_distance">---</span> m</p>
+                    <p><strong>肩髋间距:</strong> <span id="shoulder_to_hip">---</span> m</p>
                 </div>
-            <button id="stopAnalysisButton">停止分析</button>
+            </div>  
+
+            <div class="section suggestions-section">
+                <h2>姿勢改善建議</h2>
+                <div id="suggestionsContent">
+                    <p>等待影片分析完成以獲取建議...</p>
+                </div>
+            </div>
+
+            <div class="section history-section">
+                <h2>今日歷史記錄</h2>
+                <ul id="historyList">
+                    <li>暫無分析記錄</li>
+                    </ul>
+            </div>
         </div>
     </div>
 

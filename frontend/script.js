@@ -7,14 +7,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const analysisCanvas = document.getElementById('analysisCanvas');
     const ctx = analysisCanvas.getContext('2d');
     const currentFrameNumSpan = document.getElementById('currentFrameNum');
-    const leftElbowAngleSpan = document.getElementById('leftElbowAngle');
+
+    //運動力學特徵
+    const stride_angle = document.getElementById('stride_angle');
+    const throwing_angle = document.getElementById('throwing_angle');
+    const arm_symmetry = document.getElementById('arm_symmetry');
+    const hip_rotation = document.getElementById('hip_rotation');
+    const elbow_height = document.getElementById('elbow_height');
+    const ankle_height = document.getElementById('ankle_height');
+    const shoulder_rotation = document.getElementById('shoulder_rotation');
+    const torso_tilt_angle = document.getElementById('torso_tilt_angle');
+    const release_distance = document.getElementById('release_distance');
+    const shoulder_to_hip = document.getElementById('shoulder_to_hip');
+
+    // 姿勢改善建議
+    const suggestionsContentDiv = document.getElementById('suggestionsContent');
+    // 歷史紀錄
+    const historyList = document.getElementById('historyList');
     const stopAnalysisButton = document.getElementById('stopAnalysisButton');
 
     // **重要：將這裡替換為您的 FastAPI 後端實際部署的 URL**
-    // 如果在本地測試，通常是 http://localhost:8000
-    const API_BASE_URL = 'http://localhost:8000'; 
+    const API_BASE_URL = 'http://localhost:8000';
     let websocket = null;
 
+    // 模擬歷史記錄
+    const historicalAnalyses = [];
+
+    // --- 輔助函數 ---
+    function addHistoryEntry(filename, status, analysisTime) {
+        const li = document.createElement('li');
+        li.textContent = `${analysisTime} - 影片: ${filename} - 狀態: ${status}`;
+        historyList.prepend(li); // 新的記錄放在最上面
+        if (historyList.children.length > 5) { // 最多顯示5條記錄
+            historyList.removeChild(historyList.lastChild);
+        }
+    }
+
+    // --- 事件監聽器 ---
     uploadButton.addEventListener('click', async () => {
         const file = videoUpload.files[0];
         if (!file) {
@@ -26,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         messageDiv.textContent = '影片上傳中...';
         errorMessageDiv.classList.add('hidden');
         uploadButton.disabled = true; // 避免重複點擊
+        suggestionsContentDiv.innerHTML = '<p>等待影片分析完成以獲取建議...</p>'; // 清空建議
 
         const formData = new FormData();
         formData.append('file', file);
@@ -57,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             websocket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                
+
                 if (data.error) {
                     errorMessageDiv.textContent = `分析錯誤: ${data.error}`;
                     errorMessageDiv.classList.remove('hidden');
@@ -68,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // 繪製影片幀和骨架
                 const img = new Image();
-                img.src = 'data:image/jpeg;base64,' + btoa(data.frame_data); // 將 latin-1 string 轉回 binary, 再 Base64 編碼
+                img.src = 'data:image/jpeg;base64,' + btoa(data.frame_data);
                 img.onload = () => {
                     // 根據 canvas 尺寸調整圖片大小
                     const aspectRatio = img.width / img.height;
@@ -82,30 +112,46 @@ document.addEventListener('DOMContentLoaded', () => {
                             drawWidth = analysisCanvas.height * aspectRatio;
                         }
                     }
-                    
-                    // 清空 canvas
+
                     ctx.clearRect(0, 0, analysisCanvas.width, analysisCanvas.height);
-                    // 繪製影片幀
                     ctx.drawImage(img, (analysisCanvas.width - drawWidth) / 2, (analysisCanvas.height - drawHeight) / 2, drawWidth, drawHeight);
 
-                    // 繪製骨架 (假設後端已經繪製好，或者前端根據landmarks繪製)
-                    // 如果後端已繪製，前端只需顯示圖片。
-                    // 如果後端只傳landmarks，前端需要自己繪製：
-                    if (data.landmarks && data.landmarks.length > 0) {
-                        drawSkeleton(ctx, data.landmarks, drawWidth, drawHeight, (analysisCanvas.width - drawWidth) / 2, (analysisCanvas.height - drawHeight) / 2);
-                    }
                 };
 
-                // 更新運動力學數據
+                // 更新運動力學數據 (關鍵指標分析區塊)
                 currentFrameNumSpan.textContent = data.frame_num;
-                leftElbowAngleSpan.textContent = data.metrics.left_elbow_angle !== undefined ? data.metrics.left_elbow_angle : '---';
-                // 其他數據...
+                stride_angle.textContent = data.metrics.stride_angle !== undefined ? data.metrics.stride_angle : '---';
+                throwing_angle.textContent = data.metrics.throwing_angle !== undefined ? data.metrics.throwing_angle : '---';
+                arm_symmetry.textContent = data.metrics.arm_symmetry !== undefined ? data.metrics.arm_symmetry : '---';
+                hip_rotation.textContent = data.metrics.hip_rotation !== undefined ? data.metrics.hip_rotation : '---';
+                elbow_height.textContent = data.metrics.elbow_height !== undefined ? data.metrics.elbow_height : '---';
+                ankle_height.textContent = data.metrics.ankle_height !== undefined ? data.metrics.ankle_height : '---';
+                shoulder_rotation.textContent = data.metrics.shoulder_rotation !== undefined ? data.metrics.shoulder_rotation : '---';
+                torso_tilt_angle.textContent = data.metrics.torso_tilt_angle !== undefined ? data.metrics.torso_tilt_angle : '---';
+                release_distance.textContent = data.metrics.release_distance !== undefined ? data.metrics.release_distance : '---';
+                shoulder_to_hip.textContent = data.metrics.shoulder_to_hip !== undefined ? data.metrics.shoulder_to_hip : '---';
+
+                // 根據數據生成和顯示建議 (姿勢改善建議區塊)
+                // 這是一個非常簡化的範例，實際應基於更複雜的邏輯
+                if (data.metrics.stride_angle !== undefined && data.metrics.stride_angle < 15) {
+                    suggestionsContentDiv.innerHTML = '<p style="color: orange;">建議：步幅角度小於15度。</p>';
+                } else if (data.metrics.throwing_angle !== undefined && data.metrics.throwing_angle > 120) {
+                    suggestionsContentDiv.innerHTML = '<p style="color: orange;">建議：投擲角度大於120度。</p>';
+                } else if (data.metrics.arm_symmetry !== undefined && data.metrics.arm_symmetry < 1) {
+                    suggestionsContentDiv.innerHTML = '<p style="color: green;">手臂對稱性表現良好！</p>';
+                } else {
+                    suggestionsContentDiv.innerHTML = '<p>分析中...請等待數據</p>';
+                }
+
+                // 可以在此處將關鍵幀數據暫存，用於最終總結的建議
+
             };
 
             websocket.onclose = () => {
                 messageDiv.textContent = '分析已結束或連線斷開。';
                 uploadButton.disabled = false;
                 stopAnalysisButton.disabled = true;
+                addHistoryEntry(uploadResult.filename, '完成', new Date().toLocaleTimeString()); // 分析完成後新增歷史記錄
             };
 
             websocket.onerror = (error) => {
@@ -114,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 messageDiv.textContent = '';
                 uploadButton.disabled = false;
                 stopAnalysisButton.disabled = true;
+                addHistoryEntry(uploadResult.filename, '失敗', new Date().toLocaleTimeString()); // 分析失敗後新增歷史記錄
             };
 
         } catch (error) {
@@ -121,7 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
             errorMessageDiv.classList.remove('hidden');
             messageDiv.textContent = '';
             uploadButton.disabled = false;
-            if (websocket) websocket.close();
+            if (websocket) websocket.close(); // 確保錯誤時關閉WebSocket
+            addHistoryEntry(file.name, '上傳失敗', new Date().toLocaleTimeString()); // 上傳失敗後新增歷史記錄
         }
     });
 
@@ -133,51 +181,4 @@ document.addEventListener('DOMContentLoaded', () => {
         stopAnalysisButton.disabled = true;
         uploadButton.disabled = false; // 允許再次上傳
     });
-
-    // 輔助函數：在 Canvas 上繪製骨架
-    // 這裡的繪製假定後端已經繪製了，但如果後端只傳landmarks，前端可以這樣繪製
-    // 由於後端已經繪製了骨架在圖片上，這段前端繪製骨架的程式碼在這個版本中暫時不需要
-    // 但為了展示靈活性，我保留了其結構。
-    function drawSkeleton(ctx, landmarks, imgWidth, imgHeight, offsetX, offsetY) {
-        // 定義連接點，這與 MediaPipe 的 POSE_CONNECTIONS 相似
-        const connections = [
-            [11, 12], [11, 13], [13, 15], [15, 17], [15, 19], [15, 21], [12, 14], [14, 16],
-            [16, 18], [16, 20], [16, 22], [11, 23], [12, 24], [23, 24], [23, 25], [24, 26],
-            [25, 27], [26, 28], [27, 29], [28, 30], [29, 31], [30, 32], [27, 31], [28, 32]
-        ];
-
-        ctx.strokeStyle = 'lime'; // 骨架線條顏色
-        ctx.lineWidth = 2;
-        ctx.fillStyle = 'red'; // 關節點顏色
-
-        // 繪製連接線
-        connections.forEach(connection => {
-            const startLm = landmarks.find(lm => lm.id === connection[0]);
-            const endLm = landmarks.find(lm => lm.id === connection[1]);
-
-            if (startLm && endLm && startLm.visibility > 0.5 && endLm.visibility > 0.5) {
-                // 將相對座標轉換為繪圖座標
-                const startX = startLm.x * imgWidth + offsetX;
-                const startY = startLm.y * imgHeight + offsetY;
-                const endX = endLm.x * imgWidth + offsetX;
-                const endY = endLm.y * imgHeight + offsetY;
-
-                ctx.beginPath();
-                ctx.moveTo(startX, startY);
-                ctx.lineTo(endX, endY);
-                ctx.stroke();
-            }
-        });
-
-        // 繪製關節點
-        landmarks.forEach(lm => {
-            if (lm.visibility > 0.5) {
-                const pointX = lm.x * imgWidth + offsetX;
-                const pointY = lm.y * imgHeight + offsetY;
-                ctx.beginPath();
-                ctx.arc(pointX, pointY, 4, 0, 2 * Math.PI); // 關節點半徑為4
-                ctx.fill();
-            }
-        });
-    }
 });
